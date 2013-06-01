@@ -30,19 +30,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <errno.h>
+#include <dirent.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
+
 #include "jlog_config.h"
 #include "jlog_private.h"
 #include "getopt_long.h"
-#include <stdio.h>
-#if HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#if HAVE_ERRNO_H
-#include <errno.h>
-#endif
-#if HAVE_DIRENT_H
-#include <dirent.h>
-#endif
 
 static int verbose = 0;
 static int show_progress = 0;
@@ -56,7 +52,11 @@ static int quiet = 0;
 static char *add_subscriber = NULL;
 static char *remove_subscriber = NULL;
 
-static void usage(const char *prog) {
+#define OUT(...) if (!quiet) printf(__VA_ARGS__)
+
+static void
+usage(const char *prog)
+{
   printf("Usage:\n    %s <options> logpath1 [logpath2 [...]]\n",
          prog);
   printf("\t-a <sub>:\tAdd <sub> as a log subscriber\n");
@@ -72,209 +72,268 @@ static void usage(const char *prog) {
   printf("\nWARNING: the -r option can't be used on jlogs that are "
          "open by another process\n");
 }
-static int is_datafile(const char *f, u_int32_t *logid) {
+
+static int
+is_datafile(const char *f, uint32_t *logid)
+{
+  uint32_t l = 0;
   int i;
-  u_int32_t l = 0;
-  for(i=0; i<8; i++) {
-    if((f[i] >= '0' && f[i] <= '9') ||
-       (f[i] >= 'a' && f[i] <= 'f')) {
+
+  for (i = 0; i < 8; i++) {
+    if ((f[i] >= '0' && f[i] <= '9') || (f[i] >= 'a' && f[i] <= 'f')) {
       l <<= 4;
       l |= (f[i] < 'a') ? (f[i] - '0') : (f[i] - 'a' + 10);
-    }
-    else
+    } else {
       return 0;
+    }
   }
-  if(f[i] != '\0') return 0;
-  if(logid) *logid = l;
+
+  if (f[i] != '\0') {
+    return 0;
+  }
+
+  if (logid) {
+    *logid = l;
+  }
+
   return 1;
 }
-static void analyze_datafile(jlog_ctx *ctx, u_int32_t logid) {
+
+static void
+analyze_datafile(jlog_ctx *ctx, uint32_t logid)
+{
   char idxfile[MAXPATHLEN];
 
   if (jlog_inspect_datafile(ctx, logid) > 0) {
     fprintf(stderr, "One or more errors were found.\n");
-    if(repair_datafiles) {
+
+    if (repair_datafiles) {
       jlog_repair_datafile(ctx, logid);
-      fprintf(stderr,
-              "Log file reconstructed, deleting the corresponding idx file.\n");
+      fprintf(stderr, "Log file reconstructed, deleting the corresponding idx file.\n");
       STRSETDATAFILE(ctx, idxfile, logid);
       strcat(idxfile, INDEX_EXT);
       unlink(idxfile);
     }
   }
 }
-static void process_jlog(const char *file, const char *sub) {
-  jlog_ctx *log;
-  log = jlog_new(file);
 
-  if(add_subscriber) {
-    if(jlog_ctx_add_subscriber(log, add_subscriber, JLOG_BEGIN)) {
+static int
+process_jlog(const char *file, const char *sub)
+{
+  jlog_ctx *log = jlog_new(file);
+
+  if (add_subscriber) {
+    if (jlog_ctx_add_subscriber(log, add_subscriber, JLOG_BEGIN)) {
       fprintf(stderr, "Could not add subscriber '%s': %s\n", add_subscriber,
               jlog_ctx_err_string(log));
     } else {
-      if(!quiet) printf("Added subscriber '%s'\n", add_subscriber);
+      OUT("Added subscriber '%s'\n", add_subscriber);
     }
   }
-  if(remove_subscriber) {
-    if(jlog_ctx_remove_subscriber(log, remove_subscriber) <= 0) {
+
+  if (remove_subscriber) {
+    if (jlog_ctx_remove_subscriber(log, remove_subscriber) <= 0) {
       fprintf(stderr, "Could not erase subscriber '%s': %s\n",
               remove_subscriber, jlog_ctx_err_string(log));
     } else {
-      if(!quiet) printf("Erased subscriber '%s'\n", remove_subscriber);
+      OUT("Erased subscriber '%s'\n", remove_subscriber);
     }
   }
-  if(!sub) {
-    if(jlog_ctx_open_writer(log)) {
+
+  if (!sub) {
+    if (jlog_ctx_open_writer(log)) {
       fprintf(stderr, "error opening '%s'\n", file);
-      return;
+      return 0;
     }
   } else {
-    if(jlog_ctx_open_reader(log, sub)) {
+    if (jlog_ctx_open_reader(log, sub)) {
       fprintf(stderr, "error opening '%s'\n", file);
-      return;
+      return 0;
     }
   }
-  if(show_progress) {
-    jlog_id id, id2, id3;
+
+  if (show_progress) {
     char buff[20], buff2[20], buff3[20];
+    jlog_id id, id2, id3;
+
     jlog_get_checkpoint(log, sub, &id);
-    if(jlog_ctx_last_log_id(log, &id3)) {
+
+    if (jlog_ctx_last_log_id(log, &id3)) {
       fprintf(stderr, "jlog_error: %s\n", jlog_ctx_err_string(log));
-      fprintf(stderr, "error callign jlog_ctx_last_log_id\n");
+      fprintf(stderr, "error calling jlog_ctx_last_log_id\n");
     }
+
     jlog_snprint_logid(buff, sizeof(buff), &id);
     jlog_snprint_logid(buff3, sizeof(buff3), &id3);
-    if(!quiet) printf("--------------------\n");
-    if(!quiet) printf("  Perspective of the '%s' subscriber\n", sub);
-    if(!quiet) printf("    current checkpoint: %s\n", buff);
-    if(!quiet) printf("Last write: %s\n", buff3);
-    if(jlog_ctx_read_interval(log, &id, &id2) < 0) {
+    OUT("--------------------\n"
+        "  Perspective of the '%s' subscriber\n"
+        "    current checkpoint: %s\n"
+        "    Last write: %s\n", sub, buff, buff3);
+
+    if (jlog_ctx_read_interval(log, &id, &id2) < 0) {
       fprintf(stderr, "jlog_error: %s\n", jlog_ctx_err_string(log));
     }
+
     jlog_snprint_logid(buff, sizeof(buff), &id);
     jlog_snprint_logid(buff2, sizeof(buff2), &id2);
-    if(!quiet) printf("\t     next interval: [%s, %s]\n", buff, buff2);
-    if(!quiet) printf("--------------------\n\n");
+    OUT("    next interval: [%s, %s]\n"
+        "--------------------\n\n", buff, buff2);
   }
-  if(show_subscribers) {
+
+  if (show_subscribers) {
     char **list;
     int i;
+
     jlog_ctx_list_subscribers(log, &list);
-    for(i=0; list[i]; i++) {
-      jlog_id id;
+
+    for (i = 0; list[i]; i++) {
       char buff[20];
+      jlog_id id;
+
       jlog_get_checkpoint(log, list[i], &id);
       jlog_snprint_logid(buff, sizeof(buff), &id);
-      if(!quiet) printf("\t%32s @ %s\n", list[i], buff);
+      OUT("\t%32s @ %s\n", list[i], buff);
     }
+
     jlog_ctx_list_subscribers_dispose(log, list);
   }
-  if(show_files) {
-    DIR *dir;
+
+  if (show_files) {
     struct dirent *de;
+    DIR *dir;
+
     dir = opendir(file);
-    if(!dir) {
+
+    if (!dir) {
       fprintf(stderr, "error opening '%s'\n", file);
-      return;
+      return 0;
     }
-    while((de = readdir(dir)) != NULL) {
-      u_int32_t logid;
-      if(is_datafile(de->d_name, &logid)) {
+
+    while ((de = readdir(dir)) != NULL) {
+      uint32_t logid;
+
+      if (is_datafile(de->d_name, &logid)) {
         char fullfile[MAXPATHLEN];
         char fullidx[MAXPATHLEN];
-        struct stat st;
+        struct stat sb;
         int readers;
+
         snprintf(fullfile, sizeof(fullfile), "%s/%s", file, de->d_name);
         snprintf(fullidx, sizeof(fullidx), "%s/%s" INDEX_EXT, file, de->d_name);
-        if(stat(fullfile, &st)) {
-          if(!quiet) printf("\t%8s [error statting file: %s\n", de->d_name, strerror(errno));
+
+        if (stat(fullfile, &sb)) {
+          OUT("\t%8s [error stat(2)ing file: %s\n", de->d_name, strerror(errno));
         } else {
           readers = __jlog_pending_readers(log, logid);
-          if(!quiet) printf("\t%8s [%9llu bytes] %d pending readers\n",
-                            de->d_name, (unsigned long long)st.st_size, readers);
-          if(show_index_info && !quiet) {
-            struct stat sb;
+
+          OUT("\t%8s [%ju bytes] %d pending readers\n", de->d_name, sb.st_size, readers);
+
+          if (show_index_info) {
             if (stat(fullidx, &sb)) {
-              printf("\t\t idx: none\n");
+              OUT("\t\t idx: none\n");
             } else {
-              u_int32_t marker;
+              uint32_t marker;
               int closed;
+
               if (jlog_idx_details(log, logid, &marker, &closed)) {
-                printf("\t\t idx: error\n");
+                OUT("\t\t idx: error\n");
               } else {
-                printf("\t\t idx: %u messages (%08x), %s\n",
-                       marker, marker, closed?"closed":"open");
+                OUT("\t\t idx: %u messages (%08x), %s\n", marker, marker, closed ? "closed" : "open");
               }
             }
           }
-          if (analyze_datafiles) analyze_datafile(log, logid);
-          if((readers == 0) && cleanup) {
+          
+          if (analyze_datafiles) {
+            analyze_datafile(log, logid);
+          }
+
+          if (readers == 0 && cleanup) {
             unlink(fullfile);
             unlink(fullidx);
           }
         }
       }
     }
+
     closedir(dir);
   }
+
   jlog_ctx_close(log);
 }
-int main(int argc, char **argv) {
-  int i, c;
-  int option_index = 0;
+
+int
+main(int argc, char **argv)
+{
   char *subscriber = NULL;
-  while((c = getopt_long(argc, argv, "a:e:dsilrcp:v",
-                         NULL, &option_index)) != EOF) {
+  int optind = 0;
+  int i, c;
+
+  while ((c = getopt_long(argc, argv, "a:e:dsilrcp:v", NULL, &optind)) != EOF) {
     switch(c) {
-     case 'v':
+    case 'v':
       verbose = 1;
       break;
-     case 'i':
+
+    case 'i':
       show_files = 1;
       show_index_info = 1;
       break;
-     case 'r':
+
+    case 'r':
       show_files = 1;
       analyze_datafiles = 1;
       repair_datafiles = 1;
       break;
-     case 'd':
+
+    case 'd':
       show_files = 1;
       analyze_datafiles = 1;
       break;
-     case 'a':
+
+    case 'a':
       add_subscriber = optarg;
       break;
-     case 'e':
+
+    case 'e':
       remove_subscriber = optarg;
       break;
-     case 'p':
+
+    case 'p':
       show_progress = 1;
       subscriber = optarg;
       break;
-     case 's':
+
+    case 's':
       show_subscribers = 1;
       break;
-     case 'c':
+
+    case 'c':
       show_files = 1;
       quiet = 1;
       cleanup = 1;
       break;
-     case 'l':
+
+    case 'l':
       show_files = 1;
       break;
-     default:
+
+    default:
       usage(argv[0]);
       exit(-1);
     }
   }
-  if(optind == argc) {
+
+  if (optind == argc) {
     usage(argv[0]);
     exit(-1);
   }
-  for(i=optind; i<argc; i++) {
-    if(!quiet) printf("%s\n", argv[i]);
+
+  for (i = optind; i < argc; i++) {
+    OUT("%s\n", argv[i]);
     process_jlog(argv[i], subscriber);
   }
+
   return 0;
 }
+/* vim: sts=2:ts=2:sw=2:et
+ * */
