@@ -58,7 +58,9 @@ struct _jlog_id;
 typedef struct _jlog_ctx jlog_ctx;
 
 typedef struct _jlog_message_header {
-  u_int32_t reserved;
+#define JLOG_HDR_MAGIC 0x663A7318
+  u_int32_t reserved; // `reserved` is used as a magic value to check for
+                      // corruption. It should always be set to JLOG_HDR_MAGIC.
   u_int32_t tv_sec;
   u_int32_t tv_usec;
   u_int32_t mlen;
