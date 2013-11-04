@@ -1455,6 +1455,10 @@ int jlog_ctx_read_message(jlog_ctx *ctx, const jlog_id *id, jlog_message *m) {
   memcpy(&m->aligned_header, ((u_int8_t *)ctx->mmap_base) + data_off,
          sizeof(jlog_message_header));
 
+  if(m->aligned_header.reserved != JLOG_HDR_MAGIC) {
+    SYS_FAIL(JLOG_ERR_FILE_CORRUPT);
+  }
+
   if(data_off + sizeof(jlog_message_header) + m->aligned_header.mlen > ctx->mmap_len) {
 #ifdef DEBUG
     fprintf(stderr, "read idx off end: %llu %llu\n", data_off, ctx->mmap_len);
