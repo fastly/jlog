@@ -36,7 +36,7 @@ AOBJS= \
 SOOBJS= \
 	jlog.lo jlog_hash.lo jlog_io.lo
 
-all:	libjlog.$(DOTSO) libjlog.a jlogctl test jlogperl @JAVA_BITS@
+all:	libjlog.$(DOTSO) libjlog.a jlogctl jlogtail test jlogperl @JAVA_BITS@
 
 .c.o:
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $<
@@ -90,6 +90,7 @@ install:
 	$(srcdir)/mkinstalldirs $(DESTDIR)$(libdir)
 	$(srcdir)/mkinstalldirs $(DESTDIR)$(includedir)
 	$(INSTALL) -m 0755 jlogctl $(DESTDIR)$(bindir)/jlogctl
+	$(INSTALL) -m 0755 jlogtail $(DESTDIR)$(bindir)/jlogtail
 	$(INSTALL) -m 0755 jlog_change_endian.pl $(DESTDIR)$(bindir)/jlog_change_endian
 	$(INSTALL) -m 0755 jlog_sanity_check.pl $(DESTDIR)$(bindir)/jlog_sanity_check
 	$(INSTALL) -m 0755 libjlog.a $(DESTDIR)$(libdir)/libjlog.a
