@@ -67,6 +67,7 @@
 
 */
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "jlog_config.h"
 #include "jlog_private.h"
@@ -1258,6 +1259,92 @@ int jlog_ctx_remove_subscriber(jlog_ctx *ctx, const char *s) {
     ctx->last_error = JLOG_ERR_INVALID_SUBSCRIBER;
     return 0;
   }
+  return -1;
+}
+
+// Adds the data pointer and length to the jlog_message.
+void jlog_ctx_config_message(jlog_message *m, const void *data, size_t len) {
+  m->mess = (void *)data;
+  m->mess_len = len;
+  return;
+}
+
+// Takes a variable amount (given by num) of jlog_message *'s and prints them to the same log.
+int jlog_ctx_write_messages(jlog_ctx *ctx, int num, ...) {
+  struct timeval now;
+  jlog_message_header hdr;
+  off_t current_offset;
+	va_list msgs;
+	jlog_message *cur_msg;
+	int i;
+
+  ctx->last_error = JLOG_ERR_SUCCESS;
+  if(ctx->context_mode != JLOG_APPEND) {
+    ctx->last_error = JLOG_ERR_ILLEGAL_WRITE;
+    ctx->last_errno = EPERM;
+    return -1;
+  }
+ begin:
+  __jlog_open_writer(ctx);
+  if(!ctx->data) {
+    ctx->last_error = JLOG_ERR_FILE_OPEN;
+    ctx->last_errno = errno;
+    return -1;
+  }
+  if (!jlog_file_lock(ctx->data)) {
+    ctx->last_error = JLOG_ERR_LOCK;
+    ctx->last_errno = errno;
+    return -1;
+  }
+
+  if ((current_offset = jlog_file_size(ctx->data)) == -1)
+    SYS_FAIL(JLOG_ERR_FILE_SEEK);
+  if(ctx->unit_limit <= current_offset) {
+    jlog_file_unlock(ctx->data);
+    __jlog_close_writer(ctx);
+    __jlog_metastore_atomic_increment(ctx);
+    goto begin;
+  }
+
+	va_start(msgs, num);
+
+  hdr.reserved = 0;
+  gettimeofday(&now, NULL);
+  hdr.tv_sec = now.tv_sec;
+  hdr.tv_usec = now.tv_usec;
+	for (i = 0; i < num; i++) {
+		cur_msg = va_arg(msgs, jlog_message *);
+		hdr.mlen = cur_msg->mess_len;
+	}
+
+  if (!jlog_file_pwrite(ctx->data, &hdr, sizeof(hdr), current_offset))
+    SYS_FAIL(JLOG_ERR_FILE_WRITE);
+
+  current_offset += sizeof(hdr);
+
+	va_start(msgs, num);
+
+	for (i = 0; i < num; i++) {
+		cur_msg = va_arg(msgs, jlog_message *);
+    if (!jlog_file_pwrite(ctx->data, cur_msg->mess, cur_msg->mess_len, current_offset)) {
+      SYS_FAIL(JLOG_ERR_FILE_WRITE);
+		}
+    current_offset += cur_msg->mess_len;
+	}
+
+	va_end(msgs);
+
+  if(ctx->unit_limit <= current_offset) {
+    jlog_file_unlock(ctx->data);
+    __jlog_close_writer(ctx);
+    __jlog_metastore_atomic_increment(ctx);
+    return 0;
+  }
+
+finish:
+
+  jlog_file_unlock(ctx->data);
+  if(ctx->last_error == JLOG_ERR_SUCCESS) return 0;
   return -1;
 }
 
