@@ -8,6 +8,7 @@ jlog_config.h
 *.dylib
 jlogctl
 jthreadtest
+jlogtail
 config.log
 config.status
 configure
