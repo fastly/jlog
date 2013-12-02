@@ -6,6 +6,7 @@
 // from Go to C.
 //
 // Added documentation would be appreciated. Add it in jlog.h as well.
+// This file uses LDFLAGS: -ljlog.
 package jlog
 
 /*
