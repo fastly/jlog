@@ -28,6 +28,16 @@ type Safety int
 type Position int
 type Err int
 
+type Jlog struct {
+	ctx *C.jlog_ctx
+}
+type Id C.jlog_id
+
+// Increment is used to increment the marker field in the C jlog_id struct.
+func (id *Id) Increment() {
+	id.marker++
+}
+
 // jlog_safety
 const (
 	JLOG_UNSAFE Safety = iota
@@ -73,11 +83,6 @@ const (
 	JLOG_ERR_NOT_SUPPORTED
 )
 
-type Jlog struct {
-	ctx *C.jlog_ctx
-}
-type Id *C.jlog_id
-
 func assertGTZero(i C.int, e string) error {
 	if int(i) < 0 {
 		return errors.New(e)
@@ -101,10 +106,13 @@ func (log Jlog) Init() error {
 	return assertGTZero(C.jlog_ctx_init(log.ctx), "Init")
 }
 
-func (log Jlog) GetCheckpoint(subscriber string, id Id) error {
+func (log Jlog) GetCheckpoint(subscriber string, id *Id) error {
+	cid := C.jlog_id(*id)
 	s := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(s))
-	return assertGTZero(C.jlog_get_checkpoint(log.ctx, s, id), "GetCheckpoint")
+	e := assertGTZero(C.jlog_get_checkpoint(log.ctx, s, &cid), "GetCheckpoint")
+	*id = Id(cid)
+	return e
 }
 
 func (log Jlog) ListSubscribers() ([]string, error) {
@@ -250,14 +258,27 @@ func (log Jlog) PendingReaders(ulog uint32) (int, error) {
 	return int(readers), e
 }
 
-func (log Jlog) FirstLogId(id Id) error {
-	return assertGTZero(C.jlog_ctx_first_log_id(log.ctx, id), "FirstLogId")
+func (log Jlog) FirstLogId(id *Id) error {
+	cid := C.jlog_id(*id)
+	e := assertGTZero(C.jlog_ctx_first_log_id(log.ctx, &cid), "FirstLogId")
+	*id = Id(cid)
+	return e
 }
 
-func (log Jlog) LastLogId(id Id) error {
-	return assertGTZero(C.jlog_ctx_last_log_id(log.ctx, id), "LastLogId")
+func (log Jlog) LastLogId(id *Id) error {
+	cid := C.jlog_id(*id)
+	e := assertGTZero(C.jlog_ctx_last_log_id(log.ctx, &cid), "LastLogId")
+	*id = Id(cid)
+	return e
 }
 
-func (log Jlog) AdvanceId(current, start, finish Id) error {
-	return assertGTZero(C.jlog_ctx_advance_id(log.ctx, current, start, finish), "AdvanceId")
+func (log Jlog) AdvanceId(current, start, finish *Id) error {
+	cid := C.jlog_id(*current)
+	sid := C.jlog_id(*start)
+	fid := C.jlog_id(*finish)
+	e := assertGTZero(C.jlog_ctx_advance_id(log.ctx, &cid, &sid, &fid), "AdvanceId")
+	*current = Id(cid)
+	*start = Id(sid)
+	*finish = Id(fid)
+	return e
 }
