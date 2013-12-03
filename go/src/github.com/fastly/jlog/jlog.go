@@ -81,7 +81,7 @@ const (
 	JLOG_ERR_NOT_SUPPORTED
 )
 
-func assertGTZero(i C.int, e string) error {
+func assertGTEZero(i C.int, e string) error {
 	if int(i) < 0 {
 		return errors.New(e)
 	}
@@ -101,14 +101,14 @@ func (log Jlog) RawSize() uint {
 }
 
 func (log Jlog) Init() error {
-	return assertGTZero(C.jlog_ctx_init(log.ctx), "Init")
+	return assertGTEZero(C.jlog_ctx_init(log.ctx), "Init")
 }
 
 func (log Jlog) GetCheckpoint(subscriber string, id *Id) error {
 	cid := C.jlog_id(*id)
 	s := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(s))
-	e := assertGTZero(C.jlog_get_checkpoint(log.ctx, s, &cid), "GetCheckpoint")
+	e := assertGTEZero(C.jlog_get_checkpoint(log.ctx, s, &cid), "GetCheckpoint")
 	*id = Id(cid)
 	return e
 }
@@ -151,13 +151,13 @@ func (log Jlog) Errno() int {
 }
 
 func (log Jlog) OpenWriter() error {
-	return assertGTZero(C.jlog_ctx_open_writer(log.ctx), "OpenWriter")
+	return assertGTEZero(C.jlog_ctx_open_writer(log.ctx), "OpenWriter")
 }
 
 func (log Jlog) OpenReader(subscriber string) error {
 	s := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(s))
-	return assertGTZero(C.jlog_ctx_open_reader(log.ctx, s), "OpenReader")
+	return assertGTEZero(C.jlog_ctx_open_reader(log.ctx, s), "OpenReader")
 }
 
 func (log Jlog) Close() {
@@ -169,29 +169,29 @@ func (log Jlog) AlterMode(mode int) {
 }
 
 func (log Jlog) AlterJournalSize(size uint) error {
-	return assertGTZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "AlterJournalSize")
+	return assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "AlterJournalSize")
 }
 
 func (log Jlog) AlterSafety(safety Safety) error {
-	return assertGTZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(safety)), "AlterSafety")
+	return assertGTEZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(safety)), "AlterSafety")
 }
 
 func (log Jlog) AddSubscriber(subscriber string, whence Position) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
-	return assertGTZero(C.jlog_ctx_add_subscriber(log.ctx, c, C.jlog_position(whence)), "AddSubscriber")
+	return assertGTEZero(C.jlog_ctx_add_subscriber(log.ctx, c, C.jlog_position(whence)), "AddSubscriber")
 }
 
 func (log Jlog) RemoveSubscriber(subscriber string) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
-	return assertGTZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber")
+	return assertGTEZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber")
 }
 
 func (log Jlog) Write(message []byte) error {
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&message))
 	data := unsafe.Pointer(header.Data)
-	return assertGTZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write")
+	return assertGTEZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write")
 }
 
 func (log Jlog) WriteMessage(message []byte, when time.Time) error {
@@ -207,14 +207,14 @@ func (log Jlog) WriteMessage(message []byte, when time.Time) error {
 	msg.mess_len = C.u_int32_t(len(message))
 	msg.mess = data
 
-	return assertGTZero(C.jlog_ctx_write_message(log.ctx, &msg, &tv), "WriteMessage")
+	return assertGTEZero(C.jlog_ctx_write_message(log.ctx, &msg, &tv), "WriteMessage")
 }
 
 func (log Jlog) ReadInterval(firstMess, lastMess *Id) (int, error) {
 	fid := C.jlog_id(*firstMess)
 	lid := C.jlog_id(*lastMess)
 	count := C.jlog_ctx_read_interval(log.ctx, &fid, &lid)
-	e := assertGTZero(count, "ReadInterval")
+	e := assertGTEZero(count, "ReadInterval")
 	*firstMess = Id(fid)
 	*lastMess = Id(lid)
 	return int(count), e
@@ -223,7 +223,7 @@ func (log Jlog) ReadInterval(firstMess, lastMess *Id) (int, error) {
 func (log Jlog) ReadMessage(id *Id) ([]byte, error) {
 	cid := C.jlog_id(*id)
 	var m C.jlog_message
-	e := assertGTZero(C.jlog_ctx_read_message(log.ctx, &cid, &m), "ReadMessage")
+	e := assertGTEZero(C.jlog_ctx_read_message(log.ctx, &cid, &m), "ReadMessage")
 	var s []byte
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&s))
 	header.Data = uintptr(m.mess)
@@ -235,7 +235,7 @@ func (log Jlog) ReadMessage(id *Id) ([]byte, error) {
 
 func (log Jlog) ReadCheckpoint(checkpoint *Id) error {
 	cid := C.jlog_id(*checkpoint)
-	e := assertGTZero(C.jlog_ctx_read_checkpoint(log.ctx, &cid), "ReadCheckpoint")
+	e := assertGTEZero(C.jlog_ctx_read_checkpoint(log.ctx, &cid), "ReadCheckpoint")
 	*checkpoint = Id(cid)
 	return e
 }
@@ -245,27 +245,27 @@ func (log Jlog) SnprintLogId(buffer []byte, checkpoint *Id) (int, error) {
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&buffer))
 	data := unsafe.Pointer(header.Data)
 	bWritten := C.jlog_snprint_logid((*C.char)(data), C.int(len(buffer)), &cid)
-	e := assertGTZero(bWritten, "SnprintLogId")
+	e := assertGTEZero(bWritten, "SnprintLogId")
 	*checkpoint = Id(cid)
 	return int(bWritten), e
 }
 
 func (log Jlog) PendingReaders(ulog uint32) (int, error) {
 	readers := C.__jlog_pending_readers(log.ctx, C.u_int32_t(ulog))
-	e := assertGTZero(readers, "PendingReaders")
+	e := assertGTEZero(readers, "PendingReaders")
 	return int(readers), e
 }
 
 func (log Jlog) FirstLogId(id *Id) error {
 	cid := C.jlog_id(*id)
-	e := assertGTZero(C.jlog_ctx_first_log_id(log.ctx, &cid), "FirstLogId")
+	e := assertGTEZero(C.jlog_ctx_first_log_id(log.ctx, &cid), "FirstLogId")
 	*id = Id(cid)
 	return e
 }
 
 func (log Jlog) LastLogId(id *Id) error {
 	cid := C.jlog_id(*id)
-	e := assertGTZero(C.jlog_ctx_last_log_id(log.ctx, &cid), "LastLogId")
+	e := assertGTEZero(C.jlog_ctx_last_log_id(log.ctx, &cid), "LastLogId")
 	*id = Id(cid)
 	return e
 }
@@ -274,7 +274,7 @@ func (log Jlog) AdvanceId(current, start, finish *Id) error {
 	cid := C.jlog_id(*current)
 	sid := C.jlog_id(*start)
 	fid := C.jlog_id(*finish)
-	e := assertGTZero(C.jlog_ctx_advance_id(log.ctx, &cid, &sid, &fid), "AdvanceId")
+	e := assertGTEZero(C.jlog_ctx_advance_id(log.ctx, &cid, &sid, &fid), "AdvanceId")
 	*current = Id(cid)
 	*start = Id(sid)
 	*finish = Id(fid)
