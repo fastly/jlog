@@ -11,14 +11,16 @@ package jlog
 
 /*
 #cgo LDFLAGS: -ljlog
-#include <stdlib.h>
 #include <jlog.h>
+#include <stdlib.h>
+#include <sys/time.h>
 */
 import "C"
 
 import (
 	"errors"
 	"reflect"
+	"time"
 	"unsafe"
 )
 
@@ -186,25 +188,59 @@ func (log Jlog) Write(message []byte) error {
 	return assertGTZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write")
 }
 
-// XXX: jlog_ctx_write_message jlog_message unsupported
+func (log Jlog) WriteMessage(message []byte, when time.Time) error {
+	var tv C.struct_timeval
+	duration := when.Sub(time.Now())
+	tv.tv_sec = C.__time_t(duration.Seconds())
+	tv.tv_usec = C.__suseconds_t(duration.Nanoseconds())
 
-func (log Jlog) ReadInterval(firstMess, lastMess Id) (int, error) {
-	count := C.jlog_ctx_read_interval(log.ctx, firstMess, lastMess)
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&message))
+	data := unsafe.Pointer(header.Data)
+
+	var msg C.jlog_message
+	msg.mess_len = C.u_int32_t(len(message))
+	msg.mess = data
+
+	return assertGTZero(C.jlog_ctx_write_message(log.ctx, &msg, &tv), "WriteMessage")
+}
+
+func (log Jlog) ReadInterval(firstMess, lastMess *Id) (int, error) {
+	fid := C.jlog_id(*firstMess)
+	lid := C.jlog_id(*lastMess)
+	count := C.jlog_ctx_read_interval(log.ctx, &fid, &lid)
 	e := assertGTZero(count, "ReadInterval")
+	*firstMess = Id(fid)
+	*lastMess = Id(lid)
 	return int(count), e
 }
 
-// XXX jlog_ctx_read_message, jlog_message unsupported
-
-func (log Jlog) ReadCheckpoint(checkpoint Id) error {
-	return assertGTZero(C.jlog_ctx_read_checkpoint(log.ctx, checkpoint), "ReadCheckpoint")
+func (log Jlog) ReadMessage(id *Id) ([]byte, error) {
+	cid := C.jlog_id(*id)
+	var m C.jlog_message
+	e := assertGTZero(C.jlog_ctx_read_message(log.ctx, &cid, &m), "ReadMessage")
+	var s []byte
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&s))
+	header.Data = uintptr(m.mess)
+	header.Len = int(m.mess_len)
+	header.Cap = int(m.mess_len)
+	*id = Id(cid)
+	return s, e
 }
 
-func (log Jlog) SnprintLogId(buffer []byte, checkpoint Id) (int, error) {
+func (log Jlog) ReadCheckpoint(checkpoint *Id) error {
+	cid := C.jlog_id(*checkpoint)
+	e := assertGTZero(C.jlog_ctx_read_checkpoint(log.ctx, &cid), "ReadCheckpoint")
+	*checkpoint = Id(cid)
+	return e
+}
+
+func (log Jlog) SnprintLogId(buffer []byte, checkpoint *Id) (int, error) {
+	cid := C.jlog_id(*checkpoint)
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&buffer))
 	data := unsafe.Pointer(header.Data)
-	bWritten := C.jlog_snprint_logid((*C.char)(data), C.int(len(buffer)), checkpoint)
+	bWritten := C.jlog_snprint_logid((*C.char)(data), C.int(len(buffer)), &cid)
 	e := assertGTZero(bWritten, "SnprintLogId")
+	*checkpoint = Id(cid)
 	return int(bWritten), e
 }
 
