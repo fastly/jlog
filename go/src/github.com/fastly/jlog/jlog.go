@@ -127,9 +127,8 @@ func (log Jlog) ListSubscribers() ([]string, error) {
 	for i := uintptr(0); i < uintptr(r); i++ {
 		curptr := *(**C.char)(unsafe.Pointer(base + i*chrptrsz))
 		subs[i] = C.GoString(curptr)
-		C.free(unsafe.Pointer(curptr))
 	}
-	C.free(unsafe.Pointer(csubs))
+	C.jlog_ctx_list_subscribers_dispose(log.ctx, csubs)
 	return subs, nil
 }
 
@@ -170,36 +169,36 @@ func (log Jlog) AlterMode(mode int) {
 }
 
 func (log Jlog) AlterJournalSize(size uint) error {
-	return assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "AlterJournalSize")
+	return assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "AlterJournalSize", log)
 }
 
 func (log Jlog) AlterSafety(safety Safety) error {
-	return assertGTEZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(safety)), "AlterSafety")
+	return assertGTEZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(safety)), "AlterSafety", log)
 }
 
 func (log Jlog) AddSubscriber(subscriber string, whence Position) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
-	return assertGTEZero(C.jlog_ctx_add_subscriber(log.ctx, c, C.jlog_position(whence)), "AddSubscriber")
+	return assertGTEZero(C.jlog_ctx_add_subscriber(log.ctx, c, C.jlog_position(whence)), "AddSubscriber", log)
 }
 
 func (log Jlog) RemoveSubscriber(subscriber string) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
-	return assertGTEZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber")
+	return assertGTEZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber", log)
 }
 
 func (log Jlog) Write(message []byte) error {
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&message))
 	data := unsafe.Pointer(header.Data)
-	return assertGTEZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write")
+	return assertGTEZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write", log)
 }
 
-func (log Jlog) WriteMessage(message []byte, when time.Time) error {
+func (log Jlog) WriteMessage(message []byte, when time.Time) (int, error) {
 	var tv C.struct_timeval
 	duration := when.Sub(time.Now())
 	tv.tv_sec = C.__time_t(duration.Seconds())
-	tv.tv_usec = C.__suseconds_t(duration.Nanoseconds())
+	tv.tv_usec = C.__suseconds_t(duration.Nanoseconds() / 1000)
 
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&message))
 	data := unsafe.Pointer(header.Data)
