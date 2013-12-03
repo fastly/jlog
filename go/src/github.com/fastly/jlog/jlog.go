@@ -1,9 +1,7 @@
 // A wrapper library for jlog.
 //
-// This wraps the C jlog.h library. jlog_set_error_func, jlog_ctx_write_message,
-// and jlog_ctx_read_message are unimplemented because the C calls use either
-// function passing or struct definitions that are not easily translatable
-// from Go to C.
+// This wraps the C jlog.h library. jlog_set_error_func is unimplemented because
+// defining and passing a C function around is not easy to do in Go.
 //
 // Added documentation would be appreciated. Add it in jlog.h as well.
 // This file uses LDFLAGS: -ljlog.
@@ -124,25 +122,25 @@ func (log Jlog) ListSubscribers() ([]string, error) {
 
 	subs := make([]string, r)
 	chrptrsz := unsafe.Sizeof(csubs) // sizeof char *
-	curptr := csubs
-	for i := 0; i < r; i++ {
-		subs[i] = C.GoString(*curptr)
-		C.free(unsafe.Pointer(*curptr))
-		curptr = (**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(curptr)) + chrptrsz))
+	base := uintptr(unsafe.Pointer(csubs))
+	for i := uintptr(0); i < uintptr(r); i++ {
+		curptr := *(**C.char)(unsafe.Pointer(base + i*chrptrsz))
+		subs[i] = C.GoString(curptr)
+		C.free(unsafe.Pointer(curptr))
 	}
 	C.free(unsafe.Pointer(csubs))
 	return subs, nil
 }
 
 // Err returns the last error (an enum).
-func (log Jlog) Err() int {
-	return int(C.jlog_ctx_err(log.ctx))
+func (log Jlog) Err() Err {
+	return Err(C.jlog_ctx_err(log.ctx))
 }
 
 // ErrString returns the string representation of the last error.
 func (log Jlog) ErrString() string {
 	rChars := C.jlog_ctx_err_string(log.ctx)
-	defer C.free(unsafe.Pointer(rChars))
+	// no free because these are static char *
 	rStr := C.GoString(rChars)
 	return rStr
 }
