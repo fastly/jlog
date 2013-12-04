@@ -154,10 +154,6 @@ func (log Jlog) Close() {
 	C.jlog_ctx_close(log.ctx)
 }
 
-func (log Jlog) AlterMode(mode int) {
-	C.jlog_ctx_alter_mode(log.ctx, C.int(mode))
-}
-
 func (log Jlog) AlterJournalSize(size uint) error {
 	return assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "AlterJournalSize", log)
 }
