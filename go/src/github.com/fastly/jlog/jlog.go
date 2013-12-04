@@ -104,16 +104,6 @@ func (log Jlog) Init() error {
 	return assertGTEZero(C.jlog_ctx_init(log.ctx), "Init", log)
 }
 
-// GetCheckpoint modifies the Id to point to the current jlog position.
-func (log Jlog) GetCheckpoint(subscriber string, id *Id) error {
-	cid := C.jlog_id(*id)
-	s := C.CString(subscriber)
-	defer C.free(unsafe.Pointer(s))
-	e := assertGTEZero(C.jlog_get_checkpoint(log.ctx, s, &cid), "GetCheckpoint", log)
-	*id = Id(cid)
-	return e
-}
-
 func (log Jlog) ListSubscribers() ([]string, error) {
 	var csubs **C.char
 	r := int(C.jlog_ctx_list_subscribers(log.ctx, &csubs))
