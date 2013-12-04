@@ -29,6 +29,15 @@ type Err int
 type Jlog struct {
 	ctx *C.jlog_ctx
 }
+
+// Options to use when creating a new Reader or Writer.
+type Options struct {
+	CreateSafety    Safety
+	JournalSize     uint
+	ExclusiveNew    bool // Fail if the file exists
+	FilePermissions int  // an octal value of the file permissions
+}
+
 type Id C.jlog_id
 
 // Increment is used to increment the marker field in the C jlog_id struct.
@@ -88,20 +97,49 @@ func assertGTEZero(i C.int, function string, log Jlog) error {
 	return nil
 }
 
-func New(path string) Jlog {
+func New(path string, o *Options) (Jlog, error) {
+	var e error
+
+	options := Options{
+		CreateSafety:    JLOG_SAFE,
+		JournalSize:     1024 * 1024,
+		ExclusiveNew:    false,
+		FilePermissions: 0640,
+	}
+	if o != nil {
+		options = *o
+	}
+
 	p := C.CString(path)
 	defer C.free(unsafe.Pointer(p))
-	return Jlog{(C.jlog_new(p))}
+
+	log := Jlog{ctx: C.jlog_new(p)}
+	// Setup based on options.
+	e = assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "New, alter journal size", log)
+	if e != nil {
+		return log, e
+	}
+	e = assertGTEZero(C.jlog_ctx_alter_mode(log.ctx, C.size_t(size)), "New, alter mode", log)
+	if e != nil {
+		return log, e
+	}
+	e = assertGTEZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(safety)), "New, alter safety", log)
+	if e != nil {
+		return log, e
+	}
+	e = assertGTEZero(C.jlog_ctx_init(log.ctx), "New, init", log)
+	if e != nil && (log.Err() != JLOG_ERR_CREATE_EXISTS || options.ExclusiveNew == true) {
+		return log, e
+	}
+	log.Close()
+	log := Jlog{ctx: C.jlog_new(p), Path: path}
+	return log, nil // e could be set from JLOG_ERR_CREATE_EXISTS
 }
 
 // XXX: jlog_set_error_func, setting with a C function unsupported.
 
 func (log Jlog) RawSize() uint {
 	return uint(C.jlog_raw_size(log.ctx))
-}
-
-func (log Jlog) Init() error {
-	return assertGTEZero(C.jlog_ctx_init(log.ctx), "Init", log)
 }
 
 func (log Jlog) ListSubscribers() ([]string, error) {
@@ -152,14 +190,6 @@ func (log Jlog) OpenReader(subscriber string) error {
 
 func (log Jlog) Close() {
 	C.jlog_ctx_close(log.ctx)
-}
-
-func (log Jlog) AlterJournalSize(size uint) error {
-	return assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "AlterJournalSize", log)
-}
-
-func (log Jlog) AlterSafety(safety Safety) error {
-	return assertGTEZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(safety)), "AlterSafety", log)
 }
 
 func (log Jlog) AddSubscriber(subscriber string, whence Position) error {
