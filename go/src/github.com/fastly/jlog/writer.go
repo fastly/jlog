@@ -26,17 +26,17 @@ func NewWriter(path string, options *Options) (Writer, error) {
 	return Writer{writer}, e
 }
 
-func (w Writer) Open() error {
-	return assertGTEZero(C.jlog_ctx_open_writer(w.ctx), "Open", w.Jlog)
+func (log Writer) Open() error {
+	return assertGTEZero(C.jlog_ctx_open_writer(log.ctx), "Open", log.Jlog)
 }
 
-func (log Jlog) Write(message []byte) error {
+func (log Writer) Write(message []byte) error {
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&message))
 	data := unsafe.Pointer(header.Data)
-	return assertGTEZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write", log)
+	return assertGTEZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write", log.Jlog)
 }
 
-func (w Writer) DatedWrite(message []byte, when time.Time) (int, error) {
+func (log Writer) DatedWrite(message []byte, when time.Time) (int, error) {
 	var tv C.struct_timeval
 	duration := when.Sub(time.Now())
 	tv.tv_sec = C.__time_t(duration.Seconds())
@@ -55,7 +55,7 @@ func (w Writer) DatedWrite(message []byte, when time.Time) (int, error) {
 	// in the []byte length, the timing of when a message is read is seems
 	// less important.
 
-	bytesWritten := C.jlog_ctx_write_message(w.ctx, &msg, &tv)
+	bytesWritten := C.jlog_ctx_write_message(log.ctx, &msg, &tv)
 
-	return int(bytesWritten), assertGTEZero(bytesWritten, "WriteMessage", w.Jlog)
+	return int(bytesWritten), assertGTEZero(bytesWritten, "WriteMessage", log.Jlog)
 }
