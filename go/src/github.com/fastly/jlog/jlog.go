@@ -25,7 +25,14 @@ type Position int
 type Err int
 
 type Jlog struct {
-	ctx *C.jlog_ctx
+	ctx         *C.jlog_ctx
+	start       C.jlog_id
+	last        C.jlog_id
+	prev        C.jlog_id
+	end         C.jlog_id
+	readErrd    bool // last read errored
+	autoCheckpt bool
+	Path        string
 }
 
 // Options to use when creating a new Reader or Writer.
@@ -179,12 +186,6 @@ func (log Jlog) Errno() int {
 	return int(C.jlog_ctx_errno(log.ctx))
 }
 
-func (log Jlog) OpenReader(subscriber string) error {
-	s := C.CString(subscriber)
-	defer C.free(unsafe.Pointer(s))
-	return assertGTEZero(C.jlog_ctx_open_reader(log.ctx, s), "OpenReader", log)
-}
-
 func (log Jlog) Close() {
 	C.jlog_ctx_close(log.ctx)
 }
@@ -199,39 +200,6 @@ func (log Jlog) RemoveSubscriber(subscriber string) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
 	return assertGTEZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber", log)
-}
-
-// ReadInterval changes the underlying Id's as necessary.
-func (log Jlog) ReadInterval(firstMess, lastMess *Id) (int, error) {
-	fid := C.jlog_id(*firstMess)
-	lid := C.jlog_id(*lastMess)
-	count := C.jlog_ctx_read_interval(log.ctx, &fid, &lid)
-	e := assertGTEZero(count, "ReadInterval", log)
-	*firstMess = Id(fid)
-	*lastMess = Id(lid)
-	return int(count), e
-}
-
-// ReadMessage changes the underlying Id's as necessary.
-func (log Jlog) ReadMessage(id *Id) ([]byte, error) {
-	cid := C.jlog_id(*id)
-	var m C.jlog_message
-	e := assertGTEZero(C.jlog_ctx_read_message(log.ctx, &cid, &m), "ReadMessage", log)
-	var s []byte
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&s))
-	header.Data = uintptr(m.mess)
-	header.Len = int(m.mess_len)
-	header.Cap = int(m.mess_len)
-	*id = Id(cid)
-	return s, e
-}
-
-// ReadCheckpoint changes the underlying Id as necessary.
-func (log Jlog) ReadCheckpoint(checkpoint *Id) error {
-	cid := C.jlog_id(*checkpoint)
-	e := assertGTEZero(C.jlog_ctx_read_checkpoint(log.ctx, &cid), "ReadCheckpoint", log)
-	*checkpoint = Id(cid)
-	return e
 }
 
 // TODO change to an inspect call that returns a string containing info on all ids
@@ -279,3 +247,4 @@ func (log Jlog) AdvanceId(current, start, finish *Id) error {
 	*finish = Id(fid)
 	return e
 }
+// TODO add snprint_log_id similar to perl
