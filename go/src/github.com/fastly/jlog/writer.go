@@ -14,7 +14,7 @@ import (
 import "C"
 
 type Writer struct {
-	Jlog
+	*Jlog
 }
 
 // NewWriter creates and returns a new jlog writer. If options is

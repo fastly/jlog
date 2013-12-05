@@ -13,7 +13,7 @@ import (
 import "C"
 
 type Reader struct {
-	Jlog
+	*Jlog
 }
 
 var zeroId C.jlog_id

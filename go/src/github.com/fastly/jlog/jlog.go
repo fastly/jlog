@@ -87,14 +87,14 @@ const (
 	ERR_NOT_SUPPORTED      Err = C.JLOG_ERR_NOT_SUPPORTED
 )
 
-func assertGTEZero(i C.int, function string, log Jlog) error {
+func assertGTEZero(i C.int, function string, log *Jlog) error {
 	if int(i) < 0 {
 		return fmt.Errorf("from %v, %v (%v)", function, log.ErrString(), log.Err())
 	}
 	return nil
 }
 
-func newJlog(path string, o *Options) (Jlog, error) {
+func newJlog(path string, o *Options) (*Jlog, error) {
 	var e error
 
 	options := Options{
@@ -110,7 +110,7 @@ func newJlog(path string, o *Options) (Jlog, error) {
 	p := C.CString(path)
 	defer C.free(unsafe.Pointer(p))
 
-	log := Jlog{ctx: C.jlog_new(p)}
+	log := &Jlog{ctx: C.jlog_new(p)}
 	// Setup based on options.
 	e = assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx,
 		C.size_t(options.JournalSize)), "New, alter journal size", log)
@@ -132,7 +132,7 @@ func newJlog(path string, o *Options) (Jlog, error) {
 		return log, e
 	}
 	log.Close()
-	log = Jlog{ctx: C.jlog_new(p), Path: path}
+	log = &Jlog{ctx: C.jlog_new(p), Path: path}
 	return log, nil // e could be set from ERR_CREATE_EXISTS
 }
 
@@ -140,11 +140,11 @@ func newJlog(path string, o *Options) (Jlog, error) {
 
 // RawSize returns the size of the existing journal (including checkpointed but unpurged messages
 // in the current journal file), in bytes.
-func (log Jlog) RawSize() uint {
+func (log *Jlog) RawSize() uint {
 	return uint(C.jlog_raw_size(log.ctx))
 }
 
-func (log Jlog) ListSubscribers() ([]string, error) {
+func (log *Jlog) ListSubscribers() ([]string, error) {
 	var csubs **C.char
 	r := int(C.jlog_ctx_list_subscribers(log.ctx, &csubs))
 	if r < 0 {
@@ -163,12 +163,12 @@ func (log Jlog) ListSubscribers() ([]string, error) {
 }
 
 // Err returns the last error (an enum).
-func (log Jlog) Err() Err {
+func (log *Jlog) Err() Err {
 	return Err(C.jlog_ctx_err(log.ctx))
 }
 
 // ErrString returns the string representation of the last error.
-func (log Jlog) ErrString() string {
+func (log *Jlog) ErrString() string {
 	rChars := C.jlog_ctx_err_string(log.ctx)
 	// no free because these are static char *
 	rStr := C.GoString(rChars)
@@ -176,23 +176,24 @@ func (log Jlog) ErrString() string {
 }
 
 // Errno returns the last errno.
-func (log Jlog) Errno() int {
+func (log *Jlog) Errno() int {
 	return int(C.jlog_ctx_errno(log.ctx))
 }
 
-func (log Jlog) Close() {
+func (log *Jlog) Close() {
 	C.jlog_ctx_close(log.ctx)
 }
 
-func (log Jlog) AddSubscriber(subscriber string, whence Position) error {
+func (log *Jlog) AddSubscriber(subscriber string, whence Position) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
 	return assertGTEZero(C.jlog_ctx_add_subscriber(log.ctx, c, C.jlog_position(whence)), "AddSubscriber", log)
 }
 
-func (log Jlog) RemoveSubscriber(subscriber string) error {
+func (log *Jlog) RemoveSubscriber(subscriber string) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
 	return assertGTEZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber", log)
 }
+
 // TODO add snprint_log_id similar to perl
