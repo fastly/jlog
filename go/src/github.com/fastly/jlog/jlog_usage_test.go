@@ -9,7 +9,7 @@ import (
 )
 
 var payload string = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-var pcnt int = 1000
+var pcnt int = 1000000
 var pathname string
 
 func initialize(t *testing.T) {
@@ -74,6 +74,7 @@ func usageWritePayloads(cnt int, t *testing.T) {
 	for i := 0; i < cnt; i++ {
 		ctx.Write(bytePayload)
 	}
+	log.Printf("written")
 }
 
 func usageReadCheck(subscriber string, expect int, sizeup bool, t *testing.T) {
@@ -86,14 +87,14 @@ func usageReadCheck(subscriber string, expect int, sizeup bool, t *testing.T) {
 	start := ctx.RawSize()
 	for {
 		b, e := ctx.Read()
-		if b == nil {
-			if e != nil {
-				t.Errorf("err: %v", ctx.ErrString())
-			}
-			break
+		if cnt > pcnt {
+			log.Printf("cnt > pcnt, just read %v", string(b))
 		}
 		if e != nil {
 			t.Errorf("Unable to read message, error %v", ctx.ErrString())
+			break
+		}
+		if b == nil {
 			break
 		}
 		cnt++
