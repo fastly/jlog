@@ -2,6 +2,7 @@ package jlog
 
 import (
 	"reflect"
+	"sync"
 	"unsafe"
 )
 
@@ -17,6 +18,7 @@ type Reader struct {
 }
 
 var zeroId C.jlog_id
+var mutex sync.Mutex
 
 // NewReader creates and returns a new jlog reader. If options is
 // nil, the options default to SAFE, journal size 1kB, a non exclusive
@@ -38,6 +40,7 @@ func (log Reader) Read() ([]byte, error) {
 	var currentId C.jlog_id
 	var message C.jlog_message
 
+	/* if start is unset, we need to read the interval (again) */
 	if log.readErrd || log.start == zeroId {
 		log.readErrd = false
 		count := C.jlog_ctx_read_interval(log.ctx, &log.start, &log.end)
@@ -50,9 +53,11 @@ func (log Reader) Read() ([]byte, error) {
 			return nil, assertGTEZero(count, "Read", log.Jlog)
 		}
 	}
+	/* if last is unset, start at the beginning */
 	if log.last == zeroId {
 		currentId = log.start
 	} else {
+		/* if we've already read the end, return; otherwise advance */
 		currentId = log.last
 		if log.prev == log.end {
 			log.start = zeroId
@@ -66,11 +71,21 @@ func (log Reader) Read() ([]byte, error) {
 			return nil, nil
 		}
 	}
+	mutex.Lock()
 	e := C.jlog_ctx_read_message(log.ctx, &currentId, &message)
 	if e != 0 {
 		log.readErrd = true
+		mutex.Unlock()
 		return nil, assertGTEZero(e, "Read", log.Jlog)
 	}
+	var s []byte
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&s))
+	header.Data = uintptr(message.mess)
+	header.Len = int(message.mess_len)
+	header.Cap = int(message.mess_len)
+	copied := make([]byte, len(s))
+	copy(copied, s)
+	mutex.Unlock()
 	if log.autoCheckpt {
 		e := C.jlog_ctx_read_checkpoint(log.ctx, &currentId)
 		if e != 0 {
@@ -84,12 +99,7 @@ func (log Reader) Read() ([]byte, error) {
 		log.prev = log.last
 		log.last = currentId
 	}
-	var s []byte
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&s))
-	header.Data = uintptr(message.mess)
-	header.Len = int(message.mess_len)
-	header.Cap = int(message.mess_len)
-	return s, nil
+	return copied, nil
 }
 
 // Rewind rewinds the jlog to the previous transaction id (when in an uncommitted state).
