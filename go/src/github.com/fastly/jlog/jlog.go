@@ -16,7 +16,6 @@ import "C"
 
 import (
 	"fmt"
-	"reflect"
 	"unsafe"
 )
 
@@ -41,13 +40,6 @@ type Options struct {
 	JournalSize     uint
 	ExclusiveNew    bool // Fail if the file exists
 	FilePermissions int  // an octal value of the file permissions
-}
-
-type Id C.jlog_id
-
-// Increment is used to increment the marker field in the C jlog_id struct.
-func (id *Id) Increment() {
-	id.marker++
 }
 
 // jlog_safety
@@ -146,6 +138,8 @@ func newJlog(path string, o *Options) (Jlog, error) {
 
 // XXX: jlog_set_error_func, setting with a C function unsupported.
 
+// RawSize returns the size of the existing journal (including checkpointed but unpurged messages
+// in the current journal file), in bytes.
 func (log Jlog) RawSize() uint {
 	return uint(C.jlog_raw_size(log.ctx))
 }
@@ -200,51 +194,5 @@ func (log Jlog) RemoveSubscriber(subscriber string) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
 	return assertGTEZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber", log)
-}
-
-// TODO change to an inspect call that returns a string containing info on all ids
-// SnprintLogId does not change the underlying Id.
-func (log Jlog) SnprintLogId(buffer []byte, checkpoint *Id) (int, error) {
-	cid := C.jlog_id(*checkpoint)
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&buffer))
-	data := unsafe.Pointer(header.Data)
-	bWritten := C.jlog_snprint_logid((*C.char)(data), C.int(len(buffer)), &cid)
-	e := assertGTEZero(bWritten, "SnprintLogId", log)
-	*checkpoint = Id(cid)
-	return int(bWritten), e
-}
-
-func (log Jlog) PendingReaders(ulog uint32) (int, error) {
-	readers := C.__jlog_pending_readers(log.ctx, C.u_int32_t(ulog))
-	e := assertGTEZero(readers, "PendingReaders", log)
-	return int(readers), e
-}
-
-// FirstLogId changes the underlying Id as necessary.
-func (log Jlog) FirstLogId(id *Id) error {
-	cid := C.jlog_id(*id)
-	e := assertGTEZero(C.jlog_ctx_first_log_id(log.ctx, &cid), "FirstLogId", log)
-	*id = Id(cid)
-	return e
-}
-
-// LastLogId changes the underlying Id as necessary.
-func (log Jlog) LastLogId(id *Id) error {
-	cid := C.jlog_id(*id)
-	e := assertGTEZero(C.jlog_ctx_last_log_id(log.ctx, &cid), "LastLogId", log)
-	*id = Id(cid)
-	return e
-}
-
-// AdvanceId changes the underlying Ids as necessary.
-func (log Jlog) AdvanceId(current, start, finish *Id) error {
-	cid := C.jlog_id(*current)
-	sid := C.jlog_id(*start)
-	fid := C.jlog_id(*finish)
-	e := assertGTEZero(C.jlog_ctx_advance_id(log.ctx, &cid, &sid, &fid), "AdvanceId", log)
-	*current = Id(cid)
-	*start = Id(sid)
-	*finish = Id(fid)
-	return e
 }
 // TODO add snprint_log_id similar to perl
