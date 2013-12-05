@@ -11,14 +11,12 @@ package jlog
 #cgo LDFLAGS: -ljlog
 #include <jlog.h>
 #include <stdlib.h>
-#include <sys/time.h>
 */
 import "C"
 
 import (
 	"fmt"
 	"reflect"
-	"time"
 	"unsafe"
 )
 
@@ -47,47 +45,47 @@ func (id *Id) Increment() {
 
 // jlog_safety
 const (
-	JLOG_UNSAFE      Safety = C.JLOG_UNSAFE
-	JLOG_ALMOST_SAFE Safety = C.JLOG_ALMOST_SAFE
-	JLOG_SAFE        Safety = C.JLOG_SAFE
+	UNSAFE      Safety = C.JLOG_UNSAFE
+	ALMOST_SAFE Safety = C.JLOG_ALMOST_SAFE
+	SAFE        Safety = C.JLOG_SAFE
 )
 
 // jlog_position
 const (
-	JLOG_BEGIN Position = C.JLOG_BEGIN
-	JLOG_END   Position = C.JLOG_END
+	BEGIN Position = C.JLOG_BEGIN
+	END   Position = C.JLOG_END
 )
 
 // jlog_err
 const (
-	JLOG_ERR_SUCCESS            Err = C.JLOG_ERR_SUCCESS
-	JLOG_ERR_ILLEGAL_INIT       Err = C.JLOG_ERR_ILLEGAL_INIT
-	JLOG_ERR_ILLEGAL_OPEN       Err = C.JLOG_ERR_ILLEGAL_OPEN
-	JLOG_ERR_OPEN               Err = C.JLOG_ERR_OPEN
-	JLOG_ERR_NOTDIR             Err = C.JLOG_ERR_NOTDIR
-	JLOG_ERR_CREATE_PATHLEN     Err = C.JLOG_ERR_CREATE_PATHLEN
-	JLOG_ERR_CREATE_EXISTS      Err = C.JLOG_ERR_CREATE_EXISTS
-	JLOG_ERR_CREATE_MKDIR       Err = C.JLOG_ERR_CREATE_MKDIR
-	JLOG_ERR_CREATE_META        Err = C.JLOG_ERR_CREATE_META
-	JLOG_ERR_LOCK               Err = C.JLOG_ERR_IDX_OPEN
-	JLOG_ERR_IDX_OPEN           Err = C.JLOG_ERR_IDX_OPEN
-	JLOG_ERR_IDX_SEEK           Err = C.JLOG_ERR_IDX_CORRUPT
-	JLOG_ERR_IDX_CORRUPT        Err = C.JLOG_ERR_IDX_CORRUPT
-	JLOG_ERR_IDX_WRITE          Err = C.JLOG_ERR_IDX_WRITE
-	JLOG_ERR_IDX_READ           Err = C.JLOG_ERR_IDX_READ
-	JLOG_ERR_FILE_OPEN          Err = C.JLOG_ERR_FILE_OPEN
-	JLOG_ERR_FILE_SEEK          Err = C.JLOG_ERR_FILE_SEEK
-	JLOG_ERR_FILE_CORRUPT       Err = C.JLOG_ERR_FILE_CORRUPT
-	JLOG_ERR_FILE_READ          Err = C.JLOG_ERR_FILE_READ
-	JLOG_ERR_FILE_WRITE         Err = C.JLOG_ERR_FILE_WRITE
-	JLOG_ERR_META_OPEN          Err = C.JLOG_ERR_META_OPEN
-	JLOG_ERR_ILLEGAL_WRITE      Err = C.JLOG_ERR_ILLEGAL_WRITE
-	JLOG_ERR_ILLEGAL_CHECKPOINT Err = C.JLOG_ERR_ILLEGAL_CHECKPOINT
-	JLOG_ERR_INVALID_SUBSCRIBER Err = C.JLOG_ERR_INVALID_SUBSCRIBER
-	JLOG_ERR_ILLEGAL_LOGID      Err = C.JLOG_ERR_ILLEGAL_LOGID
-	JLOG_ERR_SUBSCRIBER_EXISTS  Err = C.JLOG_ERR_SUBSCRIBER_EXISTS
-	JLOG_ERR_CHECKPOINT         Err = C.JLOG_ERR_CHECKPOINT
-	JLOG_ERR_NOT_SUPPORTED      Err = C.JLOG_ERR_NOT_SUPPORTED
+	ERR_SUCCESS            Err = C.JLOG_ERR_SUCCESS
+	ERR_ILLEGAL_INIT       Err = C.JLOG_ERR_ILLEGAL_INIT
+	ERR_ILLEGAL_OPEN       Err = C.JLOG_ERR_ILLEGAL_OPEN
+	ERR_OPEN               Err = C.JLOG_ERR_OPEN
+	ERR_NOTDIR             Err = C.JLOG_ERR_NOTDIR
+	ERR_CREATE_PATHLEN     Err = C.JLOG_ERR_CREATE_PATHLEN
+	ERR_CREATE_EXISTS      Err = C.JLOG_ERR_CREATE_EXISTS
+	ERR_CREATE_MKDIR       Err = C.JLOG_ERR_CREATE_MKDIR
+	ERR_CREATE_META        Err = C.JLOG_ERR_CREATE_META
+	ERR_LOCK               Err = C.JLOG_ERR_IDX_OPEN
+	ERR_IDX_OPEN           Err = C.JLOG_ERR_IDX_OPEN
+	ERR_IDX_SEEK           Err = C.JLOG_ERR_IDX_CORRUPT
+	ERR_IDX_CORRUPT        Err = C.JLOG_ERR_IDX_CORRUPT
+	ERR_IDX_WRITE          Err = C.JLOG_ERR_IDX_WRITE
+	ERR_IDX_READ           Err = C.JLOG_ERR_IDX_READ
+	ERR_FILE_OPEN          Err = C.JLOG_ERR_FILE_OPEN
+	ERR_FILE_SEEK          Err = C.JLOG_ERR_FILE_SEEK
+	ERR_FILE_CORRUPT       Err = C.JLOG_ERR_FILE_CORRUPT
+	ERR_FILE_READ          Err = C.JLOG_ERR_FILE_READ
+	ERR_FILE_WRITE         Err = C.JLOG_ERR_FILE_WRITE
+	ERR_META_OPEN          Err = C.JLOG_ERR_META_OPEN
+	ERR_ILLEGAL_WRITE      Err = C.JLOG_ERR_ILLEGAL_WRITE
+	ERR_ILLEGAL_CHECKPOINT Err = C.JLOG_ERR_ILLEGAL_CHECKPOINT
+	ERR_INVALID_SUBSCRIBER Err = C.JLOG_ERR_INVALID_SUBSCRIBER
+	ERR_ILLEGAL_LOGID      Err = C.JLOG_ERR_ILLEGAL_LOGID
+	ERR_SUBSCRIBER_EXISTS  Err = C.JLOG_ERR_SUBSCRIBER_EXISTS
+	ERR_CHECKPOINT         Err = C.JLOG_ERR_CHECKPOINT
+	ERR_NOT_SUPPORTED      Err = C.JLOG_ERR_NOT_SUPPORTED
 )
 
 func assertGTEZero(i C.int, function string, log Jlog) error {
@@ -97,11 +95,11 @@ func assertGTEZero(i C.int, function string, log Jlog) error {
 	return nil
 }
 
-func New(path string, o *Options) (Jlog, error) {
+func newJlog(path string, o *Options) (Jlog, error) {
 	var e error
 
 	options := Options{
-		CreateSafety:    JLOG_SAFE,
+		CreateSafety:    SAFE,
 		JournalSize:     1024 * 1024,
 		ExclusiveNew:    false,
 		FilePermissions: 0640,
@@ -115,25 +113,28 @@ func New(path string, o *Options) (Jlog, error) {
 
 	log := Jlog{ctx: C.jlog_new(p)}
 	// Setup based on options.
-	e = assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(size)), "New, alter journal size", log)
+	e = assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx,
+		C.size_t(options.JournalSize)), "New, alter journal size", log)
 	if e != nil {
 		return log, e
 	}
-	e = assertGTEZero(C.jlog_ctx_alter_mode(log.ctx, C.size_t(size)), "New, alter mode", log)
+	e = assertGTEZero(C.jlog_ctx_alter_mode(log.ctx,
+		C.int(options.FilePermissions)), "New, alter mode", log)
 	if e != nil {
 		return log, e
 	}
-	e = assertGTEZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(safety)), "New, alter safety", log)
+	e = assertGTEZero(C.jlog_ctx_alter_safety(log.ctx,
+		C.jlog_safety(options.CreateSafety)), "New, alter safety", log)
 	if e != nil {
 		return log, e
 	}
 	e = assertGTEZero(C.jlog_ctx_init(log.ctx), "New, init", log)
-	if e != nil && (log.Err() != JLOG_ERR_CREATE_EXISTS || options.ExclusiveNew == true) {
+	if e != nil && (log.Err() != ERR_CREATE_EXISTS || options.ExclusiveNew == true) {
 		return log, e
 	}
 	log.Close()
-	log := Jlog{ctx: C.jlog_new(p), Path: path}
-	return log, nil // e could be set from JLOG_ERR_CREATE_EXISTS
+	log = Jlog{ctx: C.jlog_new(p), Path: path}
+	return log, nil // e could be set from ERR_CREATE_EXISTS
 }
 
 // XXX: jlog_set_error_func, setting with a C function unsupported.
@@ -178,10 +179,6 @@ func (log Jlog) Errno() int {
 	return int(C.jlog_ctx_errno(log.ctx))
 }
 
-func (log Jlog) OpenWriter() error {
-	return assertGTEZero(C.jlog_ctx_open_writer(log.ctx), "OpenWriter", log)
-}
-
 func (log Jlog) OpenReader(subscriber string) error {
 	s := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(s))
@@ -202,36 +199,6 @@ func (log Jlog) RemoveSubscriber(subscriber string) error {
 	c := C.CString(subscriber)
 	defer C.free(unsafe.Pointer(c))
 	return assertGTEZero(C.jlog_ctx_remove_subscriber(log.ctx, c), "RemoveSubscriber", log)
-}
-
-func (log Jlog) Write(message []byte) error {
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&message))
-	data := unsafe.Pointer(header.Data)
-	return assertGTEZero(C.jlog_ctx_write(log.ctx, data, C.size_t(len(message))), "Write", log)
-}
-
-func (log Jlog) WriteMessage(message []byte, when time.Time) (int, error) {
-	var tv C.struct_timeval
-	duration := when.Sub(time.Now())
-	tv.tv_sec = C.__time_t(duration.Seconds())
-	tv.tv_usec = C.__suseconds_t(duration.Nanoseconds() / 1000)
-
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&message))
-	data := unsafe.Pointer(header.Data)
-
-	var msg C.jlog_message
-	msg.mess_len = C.u_int32_t(len(message))
-	msg.mess = data
-	// The header fields are left uninitialized because they are not used
-	// anywhere down the stracktrace of writing a message (only mess and mess_len
-	// are used. Additionally, the header values are lower level metadata
-	// information about timing and length. The length is already visible
-	// in the []byte length, the timing of when a message is read is seems
-	// less important.
-
-	bytesWritten := C.jlog_ctx_write_message(log.ctx, &msg, &tv)
-
-	return int(bytesWritten), assertGTEZero(bytesWritten, "WriteMessage", log)
 }
 
 // ReadInterval changes the underlying Id's as necessary.
@@ -267,6 +234,7 @@ func (log Jlog) ReadCheckpoint(checkpoint *Id) error {
 	return e
 }
 
+// TODO change to an inspect call that returns a string containing info on all ids
 // SnprintLogId does not change the underlying Id.
 func (log Jlog) SnprintLogId(buffer []byte, checkpoint *Id) (int, error) {
 	cid := C.jlog_id(*checkpoint)
