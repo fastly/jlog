@@ -115,21 +115,21 @@ func newJlog(path string, o *Options) (*Jlog, error) {
 	e = assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx,
 		C.size_t(options.JournalSize)), "New, alter journal size", log)
 	if e != nil {
-		return log, e
+		return nil, e
 	}
 	e = assertGTEZero(C.jlog_ctx_alter_mode(log.ctx,
 		C.int(options.FilePermissions)), "New, alter mode", log)
 	if e != nil {
-		return log, e
+		return nil, e
 	}
 	e = assertGTEZero(C.jlog_ctx_alter_safety(log.ctx,
 		C.jlog_safety(options.CreateSafety)), "New, alter safety", log)
 	if e != nil {
-		return log, e
+		return nil, e
 	}
 	e = assertGTEZero(C.jlog_ctx_init(log.ctx), "New, init", log)
 	if e != nil && (log.Err() != ERR_CREATE_EXISTS || options.ExclusiveNew == true) {
-		return log, e
+		return nil, e
 	}
 	log.Close()
 	log = &Jlog{ctx: C.jlog_new(p), Path: path}
