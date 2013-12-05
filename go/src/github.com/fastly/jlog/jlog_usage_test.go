@@ -9,7 +9,7 @@ import (
 )
 
 var payload string = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-var pcnt int = 1000000
+var pcnt int = 1000
 var pathname string
 
 func initialize(t *testing.T) {
@@ -24,26 +24,26 @@ func initialize(t *testing.T) {
 	if e != nil {
 		t.Errorf("unable to remove tempfile")
 	}
-	ctx := jlog.New(pathname)
-	log.Println(ctx)
-	ctx.AlterSafety(jlog.JLOG_SAFE)
-	ctx.Init()
+	ctx, e := jlog.NewWriter(pathname, nil)
+	if e != nil {
+		t.Errorf("unable to new, error %s", ctx.ErrString())
+	}
 	ctx.Close()
 }
 
-func testSubscriber(subscriber string, t *testing.T) {
+func usageSubscriber(subscriber string, t *testing.T) {
 	log.Println("adding subscriber", subscriber, "to pathname", pathname)
-	ctx := jlog.New(pathname)
-	e := ctx.AddSubscriber(subscriber, jlog.JLOG_BEGIN)
-	if e != nil && ctx.Err() != jlog.JLOG_ERR_SUBSCRIBER_EXISTS {
+	ctx, _ := jlog.NewWriter(pathname, nil)
+	e := ctx.AddSubscriber(subscriber, jlog.BEGIN)
+	if e != nil && ctx.Err() != jlog.ERR_SUBSCRIBER_EXISTS {
 		t.Errorf("test subscriber, error %s != subscriber exists",
 			ctx.ErrString())
 	}
 }
 
-func assertSubscriber(subscriber string, expectingIt bool, t *testing.T) {
+func assertUsageSubscriber(subscriber string, expectingIt bool, t *testing.T) {
 	log.Println("checking subscriber", subscriber)
-	ctx := jlog.New(pathname)
+	ctx, _ := jlog.NewReader(pathname, nil)
 	subs, e := ctx.ListSubscribers()
 	if e != nil {
 		t.Errorf("assert subscriber, error %s", ctx.ErrString())
@@ -63,9 +63,9 @@ func assertSubscriber(subscriber string, expectingIt bool, t *testing.T) {
 	}
 }
 
-func writePayloads(cnt int, t *testing.T) {
-	ctx := jlog.New(pathname)
-	e := ctx.OpenWriter()
+func usageWritePayloads(cnt int, t *testing.T) {
+	ctx, _ := jlog.NewWriter(pathname, nil)
+	e := ctx.Open()
 	if e != nil {
 		t.Errorf("Unable to open writer, error %v", ctx.ErrString())
 	}
@@ -76,42 +76,27 @@ func writePayloads(cnt int, t *testing.T) {
 	}
 }
 
-func readCheck(subscriber string, expect int, sizeup bool, t *testing.T) {
+func usageReadCheck(subscriber string, expect int, sizeup bool, t *testing.T) {
 	cnt := 0
-	ctx := jlog.New(pathname)
-	e := ctx.OpenReader(subscriber)
+	ctx, _ := jlog.NewReader(pathname, nil)
+	e := ctx.Open(subscriber)
 	if e != nil {
 		t.Errorf("Unable to open reader, error %v", ctx.ErrString())
 	}
 	start := ctx.RawSize()
 	for {
-		var startID, finishID jlog.Id
-		count, e := ctx.ReadInterval(&startID, &finishID)
-		if e != nil {
-			t.Errorf("Unable to read interval, error %v", ctx.ErrString())
-		}
-		batchsize := count
-		// Java copies jlog.Id's into each other. It also uses object semantics which
-		// makes that POINTLESS so whoever wrote the interval whatever semantics
-		// in that test doesn't know what they're doing. cur and chkpt point to the
-		// same thing, the startID.
-		if batchsize == 0 {
+		b, e := ctx.Read()
+		if b == nil {
+			if e != nil {
+				t.Errorf("err: %v", ctx.ErrString())
+			}
 			break
 		}
-		for i := 0; i < batchsize; i++ {
-			_, e := ctx.ReadMessage(&startID)
-			if i != 0 {
-				startID.Increment()
-			}
-			if e != nil {
-				t.Errorf("Unable to read message, error %v", ctx.ErrString())
-			}
-			cnt++
-		}
-		e = ctx.ReadCheckpoint(&startID)
 		if e != nil {
-			t.Errorf("Unable to read checkpoint, error %v", ctx.ErrString())
+			t.Errorf("Unable to read message, error %v", ctx.ErrString())
+			break
 		}
+		cnt++
 	}
 	if cnt != expect {
 		t.Errorf("got wrong read count: %v != expect %v", cnt, expect)
@@ -133,12 +118,12 @@ func readCheck(subscriber string, expect int, sizeup bool, t *testing.T) {
 // A test ripped from the java test file.
 func TestUsage(t *testing.T) {
 	initialize(t)
-	testSubscriber("testing", t)
-	assertSubscriber("testing", true, t)
-	testSubscriber("witness", t)
-	assertSubscriber("witness", true, t)
-	assertSubscriber("badguy", false, t)
-	writePayloads(pcnt, t)
-	readCheck("witness", pcnt, true, t)
-	readCheck("testing", pcnt, false, t)
+	usageSubscriber("testing", t)
+	assertUsageSubscriber("testing", true, t)
+	usageSubscriber("witness", t)
+	assertUsageSubscriber("witness", true, t)
+	assertUsageSubscriber("badguy", false, t)
+	usageWritePayloads(pcnt, t)
+	usageReadCheck("witness", pcnt, true, t)
+	usageReadCheck("testing", pcnt, false, t)
 }
