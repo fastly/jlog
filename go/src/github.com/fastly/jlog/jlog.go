@@ -3,6 +3,11 @@
 // This wraps the C jlog.h library. jlog_set_error_func is unimplemented because
 // defining and passing a C function around is not easy to do in Go.
 //
+// The API of this package is NOT FINALIZED. Read() currently cannot run
+// concurrently (because the perl API does not work with multithreaded use).
+// Until this package is fixed to read concurrently, the API is not guaranteed
+// to be finalized.
+//
 // Added documentation would be appreciated. Add it in jlog.h as well.
 // This file uses LDFLAGS: -ljlog.
 package jlog
