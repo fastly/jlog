@@ -161,7 +161,7 @@ func (log *Jlog) ListSubscribers() ([]string, error) {
 	}
 
 	subs := make([]string, r)
-	chrptrsz := unsafe.Sizeof(csubs) // sizeof char *
+	chrptrsz := unsafe.Sizeof((*C.char)(nil))
 	base := uintptr(unsafe.Pointer(csubs))
 	for i := uintptr(0); i < uintptr(r); i++ {
 		curptr := *(**C.char)(unsafe.Pointer(base + i*chrptrsz))
