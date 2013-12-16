@@ -117,18 +117,18 @@ func newJlog(path string, o *Options) (*Jlog, error) {
 
 	log := &Jlog{ctx: C.jlog_new(p)}
 	// Setup based on options.
-	e = assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx,
-		C.size_t(options.JournalSize)), "New, alter journal size", log)
+	e = assertGTEZero(C.jlog_ctx_alter_journal_size(log.ctx, C.size_t(options.JournalSize)),
+		"New, alter journal size", log)
 	if e != nil {
 		return nil, e
 	}
-	e = assertGTEZero(C.jlog_ctx_alter_mode(log.ctx,
-		C.int(options.FilePermissions)), "New, alter mode", log)
+	e = assertGTEZero(C.jlog_ctx_alter_mode(log.ctx, C.int(options.FilePermissions)),
+		"New, alter mode", log)
 	if e != nil {
 		return nil, e
 	}
-	e = assertGTEZero(C.jlog_ctx_alter_safety(log.ctx,
-		C.jlog_safety(options.CreateSafety)), "New, alter safety", log)
+	e = assertGTEZero(C.jlog_ctx_alter_safety(log.ctx, C.jlog_safety(options.CreateSafety)),
+		"New, alter safety", log)
 	if e != nil {
 		return nil, e
 	}
