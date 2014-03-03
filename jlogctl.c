@@ -265,10 +265,9 @@ int
 main(int argc, char **argv)
 {
   char *subscriber = NULL;
-  int optind = 0;
   int i, c;
 
-  while ((c = getopt_long(argc, argv, "a:e:dsilrcp:v", NULL, &optind)) != EOF) {
+  while ((c = getopt_long(argc, argv, "a:e:dsilrcp:v", NULL, NULL)) != EOF) {
     switch(c) {
     case 'v':
       verbose = 1;
