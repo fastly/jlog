@@ -153,7 +153,7 @@ int jlog_repair_datafile(jlog_ctx *ctx, u_int32_t log)
   /* these values will cause us to fall right into the error clause and
    * start searching for a valid header from offset 0 */
   this = (char*)ctx->mmap_base - sizeof(hdr);
-  hdr.reserved = 0;
+  hdr.reserved = JLOG_HDR_MAGIC;
   hdr.mlen = 0;
 
   while (this + sizeof(hdr) <= mmap_end) {
@@ -165,7 +165,7 @@ int jlog_repair_datafile(jlog_ctx *ctx, u_int32_t log)
     }
     if (next + sizeof(hdr) > mmap_end) goto error;
     memcpy(&hdr, next, sizeof(hdr));
-    if (hdr.reserved != 0) goto error;
+    if (hdr.reserved != JLOG_HDR_MAGIC) goto error;
     this = next;
     continue;
   error:
@@ -177,7 +177,7 @@ int jlog_repair_datafile(jlog_ctx *ctx, u_int32_t log)
         if (afternext == mmap_end) break;
         if (afternext + sizeof(hdr) > mmap_end) continue;
         memcpy(&hdr, afternext, sizeof(hdr));
-        if (hdr.reserved == 0) break;
+        if (hdr.reserved == JLOG_HDR_MAGIC) break;
       }
     }
     /* correct for while loop entry condition */
@@ -253,7 +253,7 @@ int jlog_inspect_datafile(jlog_ctx *ctx, u_int32_t log)
   while (this + sizeof(hdr) <= mmap_end) {
     memcpy(&hdr, this, sizeof(hdr));
     i++;
-    if (hdr.reserved != 0) {
+    if (hdr.reserved != JLOG_HDR_MAGIC) {
       fprintf(stderr, "Message %d at [%ld] has invalid reserved value %u\n",
               i, (long int)(this - (char *)ctx->mmap_base), hdr.reserved);
       return 1;
@@ -877,7 +877,7 @@ restart:
 
     if (!jlog_file_pread(ctx->data, &logmhdr, sizeof(logmhdr), data_off))
       SYS_FAIL(JLOG_ERR_FILE_READ);
-    if (logmhdr.reserved != 0)
+    if (logmhdr.reserved != JLOG_HDR_MAGIC)
       SYS_FAIL(JLOG_ERR_FILE_CORRUPT);
     if ((next_off += sizeof(logmhdr) + logmhdr.mlen) > data_len)
       break;
@@ -1199,7 +1199,7 @@ int jlog_ctx_write_message(jlog_ctx *ctx, jlog_message *mess, struct timeval *wh
     goto begin;
   }
 
-  hdr.reserved = 0;
+  hdr.reserved = JLOG_HDR_MAGIC;
   if (when) {
     hdr.tv_sec = when->tv_sec;
     hdr.tv_usec = when->tv_usec;
@@ -1454,6 +1454,10 @@ int jlog_ctx_read_message(jlog_ctx *ctx, const jlog_id *id, jlog_message *m) {
 
   memcpy(&m->aligned_header, ((u_int8_t *)ctx->mmap_base) + data_off,
          sizeof(jlog_message_header));
+
+  if(m->aligned_header.reserved != JLOG_HDR_MAGIC) {
+    SYS_FAIL(JLOG_ERR_FILE_CORRUPT);
+  }
 
   if(data_off + sizeof(jlog_message_header) + m->aligned_header.mlen > ctx->mmap_len) {
 #ifdef DEBUG
