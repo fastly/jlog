@@ -455,11 +455,12 @@ int jlog_ctx_list_subscribers(jlog_ctx *ctx, char ***subs) {
   char *p;
   int len;
 
+  dir = opendir(ctx->path);
+  if (!dir) return -1;
+
   js.subs = calloc(16, sizeof(char *));
   js.allocd = 16;
 
-  dir = opendir(ctx->path);
-  if (!dir) return -1;
   while ((ent = readdir(dir))) {
     if (ent->d_name[0] == 'c' && ent->d_name[1] == 'p' && ent->d_name[2] == '.') {
 
