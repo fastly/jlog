@@ -7,10 +7,10 @@ jlog_config.h
 *.lo
 *.dylib
 jlogctl
+jlogtail
 jthreadtest
 config.log
 config.status
-configure
 perl/JLog.bs
 perl/JLog.c
 perl/Makefile.PL
